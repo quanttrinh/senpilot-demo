@@ -1,0 +1,9 @@
+From: requester@example.test
+Reply-To: requester@example.test
+To: uarb-agent@example.test
+Subject: Documents for M12205
+Message-ID: <mock-m12205@example.test>
+Content-Type: text/plain; charset=utf-8
+
+Matter number: M12205
+Requested document types: Exhibits, Key Documents

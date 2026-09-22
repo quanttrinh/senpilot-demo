@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Senpilot Regulatory Agent: Approach</title>
+<style>
+  :root {
+    --bg: #fafafc;
+    --panel: #ffffff;
+    --panel-2: #f3f4f9;
+    --ink: #091439;
+    --muted: #5b6072;
+    --accent: #091439;
+    --accent-2: #4a5faa;
+    --line: #e4e6ef;
+    --warn: #bf000f;
+    --navy-tint: rgba(9,20,57,.08);
+    --navy-tint-strong: rgba(9,20,57,.16);
+    --navy-border: rgba(9,20,57,.18);
+    --font-sans: "Geist", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 600px at 20% -10%, #eceff7 0%, var(--bg) 55%);
+    color: var(--ink);
+    font: 20px/1.5 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .deck { height: 100%; display: flex; flex-direction: column; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 64px; border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .3px; }
+  .dot-logo { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--navy-tint-strong); }
+  .nav { display: flex; align-items: center; gap: 10px; }
+  .nav button {
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 12px; cursor: pointer; font-size: 14px;
+  }
+  .nav button:hover { border-color: var(--accent); }
+  .dots { display: flex; gap: 7px; margin: 0 6px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #33406b; cursor: pointer; display: inline-block; }
+  .dots i.on { background: var(--accent); }
+  main { flex: 1; position: relative; overflow: hidden; }
+  .slide {
+    position: absolute; inset: 0; padding: 40px 64px; overflow: auto;
+    display: flex; flex-direction: column; justify-content: flex-start;
+    opacity: 0; transform: translateY(10px); pointer-events: none; transition: .28s ease;
+  }
+  .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+  h1 { font-size: 54px; margin: 8px 0 8px; }
+  h2 { font-size: 38px; margin: 2px 0 4px; }
+  h3 { font-size: 20px; margin: 0 0 8px; color: var(--accent); }
+  p { color: var(--muted); margin: 6px 0; }
+  .lead { font-size: 25px; color: var(--ink); max-width: 1000px; }
+  .hint { color: var(--accent); font-size: 17px; margin-top: 16px; }
+
+  .center { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+  .tag { display: inline-block; font-size: 15px; color: var(--accent-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 13px; margin-bottom: 10px; }
+
+  /* Pipeline */
+  .pipeline { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; flex: 1 1 auto; }
+  .stage { display: flex; align-items: stretch; gap: 16px; flex: 1 1 0; }
+  .stage-label {
+    flex: 0 0 auto; width: 46px; display: flex; align-items: center; justify-content: center;
+    writing-mode: vertical-rl; transform: rotate(180deg);
+    text-transform: uppercase; letter-spacing: 5px; font-weight: 800; font-size: 13px;
+    color: var(--panel); background: var(--accent);
+    border: 1px solid var(--accent); border-radius: 12px;
+  }
+  .row { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; flex: 1 1 0; }
+  .stage-arrow {
+    align-self: center; display: flex; align-items: center; gap: 8px;
+    padding: 5px 18px; border-radius: 999px;
+    background: var(--accent); color: #ffffff; font-weight: 800; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 1px;
+    box-shadow: 0 8px 20px rgba(9,20,57,.22);
+  }
+  .stage-arrow .stem { font-size: 18px; }
+  .node {
+    flex: 1 1 240px; min-width: 230px; background: linear-gradient(180deg, #ffffff, #f3f6fd);
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; cursor: pointer;
+    position: relative; transition: .18s ease; box-shadow: 0 1px 2px rgba(16,26,51,.05);
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .node:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(16,26,51,.12); }
+  .node .num { position: absolute; top: -13px; left: 16px; min-width: 28px; height: 28px; padding: 0 7px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: #ffffff; font-weight: 800; font-size: 15px; border-radius: 999px; box-shadow: 0 0 0 3px #ffffff; }
+  .node .ico { font-size: 24px; }
+  .node .t { font-weight: 700; margin-top: 3px; font-size: 20px; }
+  .node .s { color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .arrow { flex: 0 0 auto; align-self: center; color: var(--muted); font-size: 28px; font-weight: 600; line-height: 1; }
+
+
+  /* Cards */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; margin-top: 8px; flex: 1 1 auto; }
+  .slide--approach .grid { flex: 0 0 auto; grid-auto-rows: 1fr; gap: 56px; margin-top: 52px; }
+  .slide--approach .card { padding: 16px 20px; }
+  .slide--center { justify-content: center; }
+  .slide--approach .card p { font-size: 20px; }
+  .slide--approach .card h3 { font-size: 20px; }
+  .grid--two { grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 18px; }
+  .card p { margin: 3px 0 0; }
+  .card-ico { width: 40px; height: 40px; border-radius: 11px; background: var(--navy-tint); border: 1px solid var(--navy-border); display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 4px; }
+  ul { margin: 8px 0 0; padding-left: 24px; color: var(--muted); max-width: 1100px; }
+  li { margin: 6px 0; }
+  li b, p b { color: var(--ink); }
+  code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 16px; color: #0e1d4a; }
+
+  /* Modal */
+  .modal { position: fixed; inset: 0; background: rgba(9,20,57,.42); display: none; align-items: center; justify-content: center; padding: 22px; z-index: 50; }
+  .modal.open { display: flex; }
+  .sheet { background: linear-gradient(180deg, #ffffff, #f6f8fd); border: 1px solid var(--line); border-radius: 18px; max-width: 900px; width: 100%; max-height: 86vh; overflow: auto; padding: 26px 30px; box-shadow: 0 24px 60px rgba(16,26,51,.18); }
+  .sheet h2 { margin: 0 0 4px; font-size: 30px; }
+  .sheet .sub { color: var(--accent); font-size: 17px; margin-bottom: 14px; }
+  .sheet p { color: var(--ink); }
+  .sheet ul { color: var(--ink); }
+  .files { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+  .files code { color: var(--accent-2); }
+  .sheet .close { float: right; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 5px 11px; cursor: pointer; }
+  .sheet .close:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="deck">
+  <header>
+    <div class="brand"><span class="dot-logo"></span> Senpilot Regulatory Agent</div>
+    <div class="nav">
+      <button id="prev">← Prev</button>
+      <span class="dots" id="dots"></span>
+      <button id="next">Next →</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1: Title -->
+    <section class="slide active">
+      <div class="center">
+        <span class="tag">Approach &amp; Architecture</span>
+        <h1>Senpilot Regulatory Agent</h1>
+        <p class="lead">An agent that reads emailed requests for UARB documents and replies with the files, unattended, 24/7.</p>
+        <p>Email in → LLM parse → headless-browser scrape → ZIP → reply. Built as a resilient systemd service.</p>
+        <p class="hint">Use ← / → or the buttons. On the next slide, click any pipeline step for details.</p>
+      </div>
+    </section>
+
+    <!-- 2: Pipeline -->
+    <section class="slide">
+      <h2>The pipeline, end to end</h2>
+      <p class="hint">Click any step to see what it does, the key decisions, and where the code lives.</p>
+      <div class="pipeline" id="pipeline"></div>
+    </section>
+
+    <!-- 3: Approach and Design Decisions -->
+    <section class="slide slide--approach">
+      <h2>Approach and Design Decisions</h2>
+      <div class="grid">
+        <div class="card"><div class="card-ico">🔌</div><h3>Ports &amp; adapters</h3><ul><li>Generic IMAP listener and SMTP sender</li><li>Listener yields raw bytes; sender just delivers</li><li>All UARB logic lives in a reader and a responder</li><li>Either transport can be replaced independently</li></ul></div>
+        <div class="card"><div class="card-ico">🧩</div><h3>Injection &amp; abstraction</h3><ul><li>Clients injected, never built implicitly</li><li>Templated <code>Scraper</code> ABC with an abstract <code>scrape</code> method</li><li><code>ReplySender</code> protocol and <code>LlmClient</code> ABC</li><li>Concrete OpenCode provider for the LLM</li></ul></div>
+        <div class="card"><div class="card-ico">🛡️</div><h3>Untrusted input</h3><ul><li>Email bodies and scraped titles are data, never instructions</li><li>Wrapped in an untrusted block; control chars and delimiters stripped; length-capped</li><li>Matter number validated against a fixed pattern</li><li>Document types validated against an allow-list</li></ul></div>
+        <div class="card"><div class="card-ico">🚦</div><h3>Fail safe</h3><ul><li>Inputs validated before any work begins</li><li>Timeouts on browser, LLM, and SMTP calls</li><li>Bounded retries and capped reconnect backoff</li><li>Watchdog restarts on hang; SIGTERM exits cleanly (0)</li></ul></div>
+        <div class="card"><div class="card-ico">♻️</div><h3>Self-healing listener</h3><ul><li>Holds an IMAP IDLE session, re-issued in short slices for watchdog beats</li><li>On socket error: disconnect, then reconnect with exponential backoff</li><li>Force-closes the socket if logout fails</li><li>A failure handling one message is skipped, not fatal</li></ul></div>
+        <div class="card"><div class="card-ico">🛠️</div><h3>Operations</h3><ul><li>Hosted on Oracle Cloud free tier with limited resources</li><li>Hardened systemd unit: notify + watchdog, memory caps</li><li>Secrets only in mode-600 <code>.env</code>, validated at startup, never logged</li></ul></div>
+      </div>
+    </section>
+
+    <!-- 4: Lessons -->
+    <section class="slide slide--center">
+      <h2>What I learned</h2>
+      <ul>
+        <li><b>Browser automation with Playwright.</b> My first time scraping a real web app: navigating a virtualized results grid, driving document downloads, and handling flaky UI timing.</li>
+        <li><b>Designing testable, organized systems quickly.</b> A layered architecture with ports and adapters, dependency injection, and clean abstractions kept the project easy to reason about and extend.</li>
+        <li><b>Building fast with AI.</b> Using AI as a pairing partner to plan, implement, debug, and refine an entire pipeline end to end in a short time.</li>
+        <li><b>Running a service unattended.</b> Reconnects, watchdogs, timeouts, and clean shutdowns matter as much as the happy path.</li>
+        <li><b>Treating model I/O as untrusted.</b> When an LLM processes external input, prompt guards and strict output validation are essential.</li>
+      </ul>
+    </section>
+  </main>
+
+</div>
+
+<!-- Detail modal -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <button class="close" id="modalClose">Close ✕</button>
+    <h2 id="mTitle"></h2>
+    <div class="sub" id="mSub"></div>
+    <div id="mBody"></div>
+    <div class="files" id="mFiles"></div>
+  </div>
+</div>
+
+<script>
+  const NODES = {
+    inbound: { num: 1, ico: "✉️", title: "Inbound Email", short: "Requester emails a matter + doc types",
+      sub: "External → mailbox",
+      body: ["A requester sends a natural-language email, e.g. \u201cPlease send the Key Documents for matter M12205.\u201d",
+             "A server-side mailbox rule routes it into the folder the agent watches (<code>senpilot_demo</code>).",
+             "Nothing in the content is trusted at this point."],
+      files: [] },
+    listener: { num: 2, ico: "📥", title: "IMAP IDLE Listener", short: "Watches the mailbox, yields raw bytes",
+      sub: "Generic transport (knows nothing about UARB)",
+      body: ["Holds an IMAP IDLE session on one folder and hands each new message's raw RFC 822 bytes to a callback.",
+             "Reconnects with capped exponential backoff (1\u219260s); force-closes the socket if logout fails.",
+             "IDLE is sliced so a systemd watchdog heartbeat fires; each slice returns and the loop drains <code>UNSEEN</code>, so delivery is near-instant on push and never waits out a long window."],
+      files: ["regulatory_agent/email/listener.py"] },
+    reader: { num: 3, ico: "🔎", title: "Request Reader", short: "LLM parse + strict validation",
+      sub: "MIME extraction + untrusted-input handling",
+      body: ["Extracts From/Reply-To, subject, message-id, and the plain-text body (HTML fallback).",
+             "The LLM returns the matter number, document types, and the sender's name.",
+             "Prompt-injection guards: untrusted text is wrapped in <code>&lt;untrusted&gt;\u2026&lt;/untrusted&gt;</code> with a \u201ctreat as data\u201d instruction; control characters and delimiter tokens are stripped; length is capped.",
+             "Validation: matter must match <code>M\\d{5}</code>; document types must be in the allow-list; duplicates are dropped."],
+      files: ["regulatory_agent/email/uarb_request_reader.py", "regulatory_agent/utils/prompt.py"] },
+    orchestrator: { num: 4, ico: "🧭", title: "Orchestrator", short: "Decides the path and cleans up",
+      sub: "handle_request()",
+      body: ["Invalid request \u2192 send an error reply and stop.",
+             "Valid \u2192 scrape, zip, reply.",
+             "On failure it makes a best-effort error reply, then re-raises so the listener stays alive; temporary directories are always cleaned.",
+             "Depends on abstractions: a <code>Scraper</code> and a <code>ReplySender</code> protocol."],
+      files: ["regulatory_agent/main.py"] },
+    scraper: { num: 5, ico: "🌐", title: "UARB Scraper", short: "Implements the templated Scraper ABC",
+      sub: "UarbScraper extends Scraper[DocumentRequest, ScrapeResult]",
+      body: ["Implements the templated <code>Scraper[RequestT, ResultT]</code> abstract base class by providing the required <code>scrape(request) -&gt; result</code> method.",
+             "Headless Chromium drives the FileMaker WebDirect app: search the matter, read metadata and per-tab counts, scroll a virtualized results grid, download each document.",
+             "Deferred downloads: each download is triggered during UI work and saved at the end, so transfers overlap the next click."],
+      files: ["regulatory_agent/browser/scraper.py", "regulatory_agent/browser/uarb_scraper.py"] },
+    zip: { num: 6, ico: "🗜️", title: "Archive", short: "Bundle into a ZIP",
+      sub: "utils/file.py",
+      body: ["Streams the downloaded files into a single ZIP; disambiguates duplicate entry names.",
+             "Safe, length-capped archive filename."],
+      files: ["regulatory_agent/utils/file.py"] },
+    responder: { num: 7, ico: "💬", title: "Reply Composer", short: "Greeting + LLM summary",
+      sub: "Domain logic, UARB-specific",
+      body: ["Greets the sender by name, threads the reply (<code>In-Reply-To</code>/<code>References</code>), and builds the body.",
+             "The summary is generated by the LLM from a structured JSON of metadata, counts, and titles, also wrapped as untrusted data.",
+             "Sends error replies too, and deletes the LLM session in a <code>finally</code> block."],
+      files: ["regulatory_agent/email/uarb_request_responder.py"] },
+    smtp: { num: 8, ico: "📤", title: "SMTP Sender", short: "Generic email transport",
+      sub: "Knows nothing about UARB",
+      body: ["Builds an <code>EmailMessage</code>, guesses the attachment MIME type, and sends over SMTP with a timeout.",
+             "If the archive exceeds 20 MB it still sends the reply, with a notice that the attachment was omitted.",
+             "Pure transport: callers pass recipient, subject, body, and attachment."],
+      files: ["regulatory_agent/email/sender.py"] },
+    reply: { num: 9, ico: "✅", title: "Reply Delivered", short: "Summary + ZIP back to requester",
+      sub: "Done",
+      body: ["The requester receives the summary and the ZIP attachment (or a notice/error).",
+             "The source message is marked <code>\\Seen</code> so it is not processed twice."],
+      files: [] }
+  };
+
+  const STAGES = [
+    { name: "Input", ids: ["inbound", "listener", "reader"] },
+    { name: "Processing", ids: ["orchestrator", "scraper", "zip"] },
+    { name: "Output", ids: ["responder", "smtp", "reply"] }
+  ];
+
+  function nodeHTML(id) {
+    const n = NODES[id];
+    return '<div class="node" data-id="' + id + '">' +
+      '<span class="num">' + n.num + '</span>' +
+      '<div class="ico">' + n.ico + '</div>' +
+      '<div class="t">' + n.title + '</div>' +
+      '<div class="s">' + n.short + '</div>' +
+      '</div>';
+  }
+
+  const pipe = document.getElementById("pipeline");
+  STAGES.forEach((stage, si) => {
+    const block = document.createElement("div");
+    block.className = "stage";
+
+    const label = document.createElement("div");
+    label.className = "stage-label";
+    label.textContent = stage.name;
+    block.appendChild(label);
+
+    const row = document.createElement("div");
+    row.className = "row";
+    stage.ids.forEach((id, ci) => {
+      row.insertAdjacentHTML("beforeend", nodeHTML(id));
+      if (ci < stage.ids.length - 1) row.insertAdjacentHTML("beforeend", '<span class="arrow">→</span>');
+    });
+    block.appendChild(row);
+    pipe.appendChild(block);
+
+    if (si < STAGES.length - 1) {
+      const t = document.createElement("div");
+      t.className = "stage-arrow";
+      t.innerHTML = '<span class="stem">↓</span><span>to ' + STAGES[si + 1].name + '</span>';
+      pipe.appendChild(t);
+    }
+  });
+
+  // Modal
+  const modal = document.getElementById("modal");
+  function openNode(id) {
+    const n = NODES[id];
+    document.getElementById("mTitle").textContent = n.ico + "  " + n.title;
+    document.getElementById("mSub").textContent = n.sub || "";
+    document.getElementById("mBody").innerHTML = n.body.map(p => "<p>" + p + "</p>").join("");
+    document.getElementById("mFiles").innerHTML =
+      n.files.length ? n.files.map(f => "<code>" + f + "</code>").join("") : "";
+    modal.classList.add("open");
+  }
+  pipe.addEventListener("click", e => {
+    const node = e.target.closest(".node");
+    if (node) openNode(node.dataset.id);
+  });
+  document.getElementById("modalClose").onclick = () => modal.classList.remove("open");
+  modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("open"); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") modal.classList.remove("open");
+  });
+
+  // Slides
+  const slides = [...document.querySelectorAll(".slide")];
+  const dots = document.getElementById("dots");
+  let idx = 0;
+  slides.forEach((_, i) => {
+    const d = document.createElement("i");
+    d.onclick = () => go(i);
+    dots.appendChild(d);
+  });
+  function go(i) {
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, k) => s.classList.toggle("active", k === idx));
+    [...dots.children].forEach((d, k) => d.classList.toggle("on", k === idx));
+  }
+  document.getElementById("next").onclick = () => go(idx + 1);
+  document.getElementById("prev").onclick = () => go(idx - 1);
+  document.addEventListener("keydown", e => {
+    if (modal.classList.contains("open")) return;
+    if (e.key === "ArrowRight" || e.key === "PageDown") go(idx + 1);
+    if (e.key === "ArrowLeft" || e.key === "PageUp") go(idx - 1);
+  });
+  go(0);
+</script>
+</body>
+</html>

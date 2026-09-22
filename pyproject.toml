@@ -1,0 +1,42 @@
+[project]
+name = "regulatory-agent"
+version = "0.1.0"
+description = "Automates retrieval of UARB documents in response to inbound email requests."
+requires-python = ">=3.14"
+dependencies = [
+    "imapclient~=4.1.0",
+    "openai~=3.17.0",
+    "playwright~=1.63.0",
+    "python-dotenv~=1.2.0",
+]
+
+[project.scripts]
+regulatory-agent = "regulatory_agent.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["regulatory_agent"]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "ruff>=0.16.8",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.14"
+files = ["regulatory_agent", "scripts"]
+
+[[tool.mypy.overrides]]
+module = ["imapclient", "imapclient.*"]
+ignore_missing_imports = true
